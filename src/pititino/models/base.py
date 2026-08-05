@@ -1,7 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from typing import Any, Protocol
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    id: str
+    name: str
+    arguments: str
+
+
+@dataclass(frozen=True)
+class ModelResponse:
+    content: str
+    tool_calls: list[ToolCall]
 
 
 class ModelBackend(Protocol):

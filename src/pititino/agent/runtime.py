@@ -4,7 +4,6 @@ import asyncio
 import inspect
 import json
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
@@ -12,26 +11,13 @@ from pydantic import BaseModel
 from pititino.agent.pydantic_backend import PydanticAgentBackend
 from pititino.config import Settings
 from pititino.errors import AgentRuntimeError, ModelEndpointError, PititinoError
-from pititino.models.base import ModelBackend
+from pititino.models.base import ModelBackend, ModelResponse, ToolCall
 from pititino.models.chat_completions import ChatCompletionsClient
 from pititino.tools.registry import ToolRegistry
 from pititino.transactions.changeset import ChangeSet
 
 ToolActivity = Callable[[str], Awaitable[None] | None]
 TextDelta = Callable[[str], Awaitable[None] | None]
-
-
-@dataclass(frozen=True)
-class ToolCall:
-    id: str
-    name: str
-    arguments: str
-
-
-@dataclass(frozen=True)
-class AssistantResult:
-    content: str
-    tool_calls: list[ToolCall]
 
 
 class AgentRuntime:
@@ -242,7 +228,7 @@ class AgentRuntime:
         tools: list[dict[str, Any]],
         on_text_delta: TextDelta | None,
         json_mode: bool,
-    ) -> AssistantResult:
+    ) -> ModelResponse:
         try:
             return await asyncio.wait_for(
                 self._request(messages, tools, on_text_delta, json_mode),
@@ -259,15 +245,17 @@ class AgentRuntime:
         tools: list[dict[str, Any]],
         on_text_delta: TextDelta | None,
         json_mode: bool,
-    ) -> AssistantResult:
+    ) -> ModelResponse:
         if json_mode:
+            if hasattr(self.client, "complete_json"):
+                return await self.client.complete_json(messages)
             response = await self.client.complete(messages, [])
             message = response.choices[0].message
             return self._parse_json_action(message.content or "")
         if on_text_delta is None or not hasattr(self.client, "stream"):
             response = await self.client.complete(messages, tools)
             message = response.choices[0].message
-            return AssistantResult(
+            return ModelResponse(
                 content=message.content or "",
                 tool_calls=[
                     ToolCall(call.id, call.function.name, call.function.arguments)
@@ -295,12 +283,12 @@ class AgentRuntime:
                         call["name"] += tool_delta.function.name
                     if tool_delta.function.arguments:
                         call["arguments"] += tool_delta.function.arguments
-        return AssistantResult(
+        return ModelResponse(
             content="".join(text_parts),
             tool_calls=[ToolCall(call["id"], call["name"], call["arguments"]) for call in calls.values()],
         )
 
-    def _parse_json_action(self, content: str) -> AssistantResult:
+    def _parse_json_action(self, content: str) -> ModelResponse:
         candidate = content.strip()
         if candidate.startswith("```") and candidate.endswith("```"):
             lines = candidate.splitlines()
@@ -308,11 +296,11 @@ class AgentRuntime:
         try:
             action = json.loads(candidate)
         except json.JSONDecodeError:
-            return AssistantResult(content=content, tool_calls=[])
+            return ModelResponse(content=content, tool_calls=[])
         if not isinstance(action, dict) or not isinstance(action.get("action"), str):
-            return AssistantResult(content=content, tool_calls=[])
+            return ModelResponse(content=content, tool_calls=[])
         arguments = action.get("arguments", {})
-        return AssistantResult(
+        return ModelResponse(
             content="",
             tool_calls=[
                 ToolCall(
