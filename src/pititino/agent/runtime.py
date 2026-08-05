@@ -9,9 +9,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from pititino.agent.pydantic_backend import PydanticAgentBackend
 from pititino.config import Settings
 from pititino.errors import AgentRuntimeError, ModelEndpointError, PititinoError
 from pititino.models.base import ModelBackend
+from pititino.models.chat_completions import ChatCompletionsClient
 from pititino.tools.registry import ToolRegistry
 from pititino.transactions.changeset import ChangeSet
 
@@ -48,10 +50,18 @@ class AgentRuntime:
         self.on_tool_activity = on_tool_activity
         self.pending_changes: list[ChangeSet] = []
         self.conversation_history: list[dict[str, str]] = []
+        self.pydantic_backend = (
+            PydanticAgentBackend(settings, registry, on_tool_activity=on_tool_activity)
+            if settings.model.tool_calling in {"native", "auto"}
+            and isinstance(client, ChatCompletionsClient)
+            else None
+        )
 
     def reset_conversation(self) -> None:
         """Clear completed user and assistant turns for the current session."""
         self.conversation_history.clear()
+        if self.pydantic_backend is not None:
+            self.pydantic_backend.reset_conversation()
 
     async def run(
         self,
@@ -61,6 +71,19 @@ class AgentRuntime:
         on_text_delta: TextDelta | None = None,
     ) -> str:
         self.pending_changes.clear()
+        if self.pydantic_backend is not None:
+            try:
+                result = await self.pydantic_backend.run(
+                    user_message,
+                    selected_file=selected_file,
+                    on_text_delta=on_text_delta,
+                )
+            except ModelEndpointError:
+                if self.settings.model.tool_calling != "auto":
+                    raise
+            else:
+                self.pending_changes = list(self.pydantic_backend.pending_changes)
+                return result
         context = ""
         if selected_file:
             context = f"\nThe user currently selected this workspace file: {selected_file}"
