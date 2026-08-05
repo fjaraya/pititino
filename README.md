@@ -269,6 +269,10 @@ During development:
 uv run pititino ./reports
 ```
 
+In the filesystem browser, press `s` to cycle through file sorting modes:
+name ascending, name descending, modification time ascending, and modification
+time descending.
+
 ## Example workflows
 
 ### Create an overview worksheet

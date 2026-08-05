@@ -15,4 +15,4 @@ SPLASH_ART = (
     "       AI file workbench\n"
 )
 
-COMPACT_HEADER = "/\\_/\\   PITITINO\n( o.o )  AI file workbench\n > ^ <"
+COMPACT_HEADER = "  /\\_/\\   PITITINO\n( o.o )  AI file workbench\n > ^ <"

@@ -36,7 +36,7 @@ class HangingRuntime(FakeRuntime):
 def test_branding_contains_requested_identity() -> None:
     assert "PITITINO" in SPLASH_ART
     assert "AI file workbench" in SPLASH_ART
-    assert COMPACT_HEADER == "/\\_/\\   PITITINO\n( o.o )  AI file workbench\n > ^ <"
+    assert COMPACT_HEADER == "  /\\_/\\   PITITINO\n( o.o )  AI file workbench\n > ^ <"
 
 
 @pytest.mark.anyio
@@ -60,7 +60,7 @@ async def test_tui_selects_file_and_submits_prompt(tmp_path) -> None:
 
     async with app.run_test() as pilot:
         await pilot.press("enter")
-        app.on_directory_tree_file_selected(SimpleNamespace(path=file_path))
+        app.on_workspace_tree_file_selected(SimpleNamespace(path=file_path))
         await pilot.click("#prompt")
         await pilot.press(*"summarize")
         await pilot.press("enter")

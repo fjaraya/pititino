@@ -8,7 +8,7 @@ from typing import ClassVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import DirectoryTree, Footer, Input, RichLog, Static
+from textual.widgets import Footer, Input, RichLog, Static
 from textual.worker import Worker
 
 from pititino.agent.runtime import AgentRuntime
@@ -20,6 +20,7 @@ from pititino.transactions.changeset import ChangeSet
 from pititino.transactions.executor import apply_changeset
 from pititino.tui.branding import COMPACT_HEADER
 from pititino.tui.screens import SplashScreen
+from pititino.tui.workspace_tree import WorkspaceTree
 from pititino.workspace import Workspace
 
 
@@ -32,6 +33,7 @@ class PititinoApp(App[None]):
         ("a", "apply_changes", "Apply proposed changes"),
         ("c", "cancel_changes", "Cancel proposed changes"),
         ("escape", "cancel_request", "Cancel request"),
+        ("s", "cycle_sort", "Cycle file sort"),
     ]
 
     CSS = """
@@ -78,7 +80,8 @@ class PititinoApp(App[None]):
         with Horizontal(id="workspace"):
             with Vertical(id="browser"):
                 yield Static(f"Workspace: {self.workspace}")
-                yield DirectoryTree(str(self.workspace), id="tree")
+                yield Static("Sort: name (asc)", id="browser-sort")
+                yield WorkspaceTree(self.workspace, id="tree")
             with Vertical(id="main"):
                 yield RichLog(markup=True, wrap=True, id="chat")
                 yield Static(id="response-stream")
@@ -88,8 +91,8 @@ class PititinoApp(App[None]):
                 yield Input(placeholder="Ask Pititino to inspect or modify a file…", id="prompt")
         yield Footer()
 
-    def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        path = Path(event.path)
+    def on_workspace_tree_file_selected(self, event: WorkspaceTree.FileSelected) -> None:
+        path = event.path
         self.selected_file = str(path.relative_to(self.workspace))
         self.query_one("#selection", Static).update(f"Selected: {self.selected_file}")
         self.query_one("#status", Static).update(self._status_text())
@@ -207,6 +210,11 @@ class PititinoApp(App[None]):
             self._write_chat("Type `yes` to apply the proposed changes, or anything else to cancel.")
         else:
             self._write_chat("No proposed changes are waiting for approval.")
+
+    def action_cycle_sort(self) -> None:
+        tree = self.query_one("#tree", WorkspaceTree)
+        tree.cycle_sort()
+        self.query_one("#browser-sort", Static).update(f"Sort: {tree.sort_label}")
 
     @work(exclusive=True)
     async def apply_pending_changes(self) -> None:
