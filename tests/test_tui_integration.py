@@ -6,7 +6,7 @@ import pytest
 
 from pititino.config import Settings
 from pititino.transactions.changeset import ChangeOperation, ChangeSet
-from pititino.tui.app import PititinoApp
+from pititino.tui.app import PititinoApp, PromptInput
 from pititino.tui.branding import COMPACT_HEADER, SPLASH_ART
 from pititino.tui.screens import SplashScreen
 
@@ -73,6 +73,43 @@ async def test_tui_selects_file_and_submits_prompt(tmp_path) -> None:
         assert runtime.calls == [("summarize", "notes.md")]
         assert app.busy is False
         assert app.streamed_text == ""
+
+
+@pytest.mark.anyio
+async def test_prompt_input_recalls_previous_prompts_with_up_and_down(tmp_path) -> None:
+    app = PititinoApp(Path(tmp_path), Settings())
+    runtime = FakeRuntime()
+    app.runtime = runtime
+
+    async with app.run_test() as pilot:
+        await pilot.press("enter")
+        await pilot.click("#prompt")
+        await pilot.press(*"first prompt")
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.click("#prompt")
+        await pilot.press(*"second prompt")
+        await pilot.press("enter")
+        await pilot.pause()
+
+        prompt = app.query_one("#prompt", PromptInput)
+        await pilot.press("up")
+        assert prompt.value == "second prompt"
+        await pilot.press("up")
+        assert prompt.value == "first prompt"
+        await pilot.press("down")
+        assert prompt.value == "second prompt"
+        await pilot.press("down")
+        assert prompt.value == ""
+
+        await pilot.press("up")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert runtime.calls == [
+            ("first prompt", None),
+            ("second prompt", None),
+            ("second prompt", None),
+        ]
 
 
 @pytest.mark.anyio

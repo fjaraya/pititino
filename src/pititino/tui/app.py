@@ -8,6 +8,7 @@ from typing import ClassVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
+from textual.events import Key
 from textual.widgets import Button, Footer, Input, RichLog, Static
 from textual.worker import Worker
 
@@ -22,6 +23,48 @@ from pititino.tui.branding import COMPACT_HEADER
 from pititino.tui.screens import SplashScreen
 from pititino.tui.workspace_tree import WorkspaceTree
 from pititino.workspace import Workspace
+
+
+class PromptInput(Input):
+    """Single-line prompt with in-session Up/Down history navigation."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self.prompt_history: list[str] = []
+        self._history_index: int | None = None
+        self._draft = ""
+
+    def record_prompt(self, prompt: str) -> None:
+        if not self.prompt_history or self.prompt_history[-1] != prompt:
+            self.prompt_history.append(prompt)
+        self._history_index = len(self.prompt_history)
+        self._draft = ""
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "up":
+            event.stop()
+            self._navigate_history(-1)
+        elif event.key == "down":
+            event.stop()
+            self._navigate_history(1)
+        else:
+            self._history_index = None
+
+    def _navigate_history(self, direction: int) -> None:
+        if not self.prompt_history:
+            return
+        if self._history_index is None:
+            self._draft = self.value
+            self._history_index = len(self.prompt_history)
+        self._history_index = max(
+            0, min(len(self.prompt_history), self._history_index + direction)
+        )
+        self.value = (
+            self._draft
+            if self._history_index == len(self.prompt_history)
+            else self.prompt_history[self._history_index]
+        )
+        self.cursor_position = len(self.value)
 
 
 class PititinoApp(App[None]):
@@ -97,7 +140,7 @@ class PititinoApp(App[None]):
                         yield Button("Cancel", id="cancel-plan", variant="error")
                 yield Static(self._selection_label(), id="selection")
                 yield Static(self._status_text(), id="status")
-                yield Input(placeholder="Ask Pititino to inspect or modify a file…", id="prompt")
+                yield PromptInput(placeholder="Ask Pititino to inspect or modify a file…", id="prompt")
         yield Footer()
 
     def on_workspace_tree_file_selected(self, event: WorkspaceTree.FileSelected) -> None:
@@ -128,6 +171,8 @@ class PititinoApp(App[None]):
                 self.runtime.pending_changes.clear()
                 self._write_chat("**Pititino:** Changes cancelled.")
             return
+        if isinstance(event.input, PromptInput):
+            event.input.record_prompt(prompt)
         self._write_chat(f"**You:** {prompt}")
         self.prompt_worker = self.run_prompt(prompt)
 

@@ -278,6 +278,10 @@ Chat text can be selected by dragging over it and copied with `Command-C` on
 macOS. If the terminal captures mouse input first, use the terminal's native
 selection modifier, typically `Option` while dragging.
 
+The prompt keeps an in-session history. Press `Up` to recall an earlier prompt,
+`Down` to move forward or restore your draft, and `Enter` to submit the recalled
+prompt again.
+
 Pititino keeps the last 10 completed conversation turns during the current
 session, including when switching files. Press `Ctrl-Shift-R` to reset that
 context manually.
