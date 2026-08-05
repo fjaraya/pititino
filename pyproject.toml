@@ -1,0 +1,37 @@
+[project]
+name = "pititino"
+version = "0.1.0.dev0"
+description = "Terminal-native AI file workbench for controlled local file operations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "Francisco Araya" }]
+dependencies = [
+  "openai>=1.0",
+  "openpyxl>=3.1",
+  "pydantic>=2.0",
+  "textual>=0.80",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+pititino = "pititino.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pititino"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
