@@ -102,8 +102,7 @@ async def test_tui_confirmation_applies_pending_change(tmp_path) -> None:
         assert app.confirming_apply is True
         assert app.plan_state == "awaiting approval"
 
-        await pilot.press(*"yes")
-        await pilot.press("enter")
+        await pilot.click("#apply-plan")
         await pilot.pause()
 
         assert file_path.read_text(encoding="utf-8") == "new"

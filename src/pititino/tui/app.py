@@ -8,7 +8,7 @@ from typing import ClassVar
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Footer, Input, RichLog, Static
+from textual.widgets import Button, Footer, Input, RichLog, Static
 from textual.worker import Worker
 
 from pititino.agent.runtime import AgentRuntime
@@ -46,7 +46,9 @@ class PititinoApp(App[None]):
     #main { width: 66%; }
     #chat { height: 1fr; padding: 1 2; border: solid $surface; }
     #response-stream { height: auto; padding: 0 2; color: $text; }
-    #plan { display: none; height: auto; max-height: 12; padding: 1 2; border: solid $warning; }
+    #plan { display: none; height: auto; max-height: 14; padding: 1 2; border: solid $warning; }
+    #plan-actions { height: auto; margin-top: 1; }
+    #plan-actions Button { margin-right: 1; }
     #selection { height: auto; padding: 0 1; color: $text-muted; }
     #status { height: auto; padding: 0 1; color: $text-muted; }
     #prompt { dock: bottom; }
@@ -88,7 +90,11 @@ class PititinoApp(App[None]):
             with Vertical(id="main"):
                 yield RichLog(markup=True, wrap=True, id="chat")
                 yield Static(id="response-stream")
-                yield Static("", id="plan")
+                with Vertical(id="plan"):
+                    yield Static("", id="plan-details")
+                    with Horizontal(id="plan-actions"):
+                        yield Button("Apply", id="apply-plan", variant="success")
+                        yield Button("Cancel", id="cancel-plan", variant="error")
                 yield Static(self._selection_label(), id="selection")
                 yield Static(self._status_text(), id="status")
                 yield Input(placeholder="Ask Pititino to inspect or modify a file…", id="prompt")
@@ -117,9 +123,7 @@ class PititinoApp(App[None]):
         if self.confirming_apply:
             self.confirming_apply = False
             if prompt.lower() == "yes":
-                self.applying = True
-                self._show_plan(self._pending_plan_text(), "applying")
-                self.apply_worker = self.apply_pending_changes()
+                self._approve_pending_changes()
             else:
                 self.runtime.pending_changes.clear()
                 self._write_chat("**Pititino:** Changes cancelled.")
@@ -208,11 +212,15 @@ class PititinoApp(App[None]):
             self._write_chat("**Pititino:** Wait for the current request to finish.")
             return
         if self.runtime.pending_changes:
-            self.confirming_apply = True
-            self._show_plan(self._pending_plan_text(), "awaiting approval")
-            self._write_chat("Type `yes` to apply the proposed changes, or anything else to cancel.")
+            self._approve_pending_changes()
         else:
             self._write_chat("No proposed changes are waiting for approval.")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "apply-plan":
+            self._approve_pending_changes()
+        elif event.button.id == "cancel-plan":
+            self._cancel_pending_changes()
 
     def action_cycle_sort(self) -> None:
         tree = self.query_one("#tree", WorkspaceTree)
@@ -290,6 +298,18 @@ class PititinoApp(App[None]):
         self._write_chat("**Pititino:** Proposed changes cancelled.")
         self.query_one("#status", Static).update(self._status_text("cancelled"))
 
+    def _approve_pending_changes(self) -> None:
+        if self.busy or self.applying:
+            self._write_chat("**Pititino:** Wait for the current request to finish.")
+            return
+        if not self.runtime.pending_changes:
+            self._write_chat("No proposed changes are waiting for approval.")
+            return
+        self.confirming_apply = False
+        self.applying = True
+        self._show_plan(self._pending_plan_text(), "applying")
+        self.apply_worker = self.apply_pending_changes()
+
     def _group_pending_changes(self) -> list[ChangeSet]:
         grouped: dict[str, list[ChangeSet]] = defaultdict(list)
         for change in self.runtime.pending_changes:
@@ -313,13 +333,11 @@ class PititinoApp(App[None]):
 
     def _show_plan(self, plan: str, state: str) -> None:
         self.plan_state = state
-        panel = self.query_one("#plan", Static)
-        panel.update(f"Change plan [{state}]\n{plan}\n\n[a] apply  [c] cancel")
-        panel.styles.display = "block"
+        self.query_one("#plan-details", Static).update(f"Change plan [{state}]\n{plan}")
+        self.query_one("#plan", Vertical).styles.display = "block"
 
     def _hide_plan(self, state: str) -> None:
         self.plan_state = state
-        panel = self.query_one("#plan", Static)
-        panel.update(f"Change plan [{state}]")
+        self.query_one("#plan-details", Static).update(f"Change plan [{state}]")
         if state in {"applied", "cancelled"}:
-            panel.styles.display = "none"
+            self.query_one("#plan", Vertical).styles.display = "none"

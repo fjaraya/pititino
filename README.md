@@ -87,7 +87,7 @@ The initial interface is built around three main areas:
 
 The TUI is intended to provide filesystem navigation, file selection, chat history, streaming responses, tool activity, change-plan previews, approvals, operation results, and keyboard-driven navigation.
 
-When a write plan is waiting, press `a` to review/apply it or `c` to cancel it.
+When a write plan is waiting, click `Apply` or `Cancel`, or use `a` / `c`.
 Press `Escape` to cancel an active model request or write operation.
 
 ## Architecture
