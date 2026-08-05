@@ -273,6 +273,10 @@ In the filesystem browser, press `s` to cycle through workspace entry sorting
 modes: name ascending, name descending, modification time ascending, and
 modification time descending. Files and directories are sorted together.
 
+Chat text can be selected by dragging over it and copied with `Command-C` on
+macOS. If the terminal captures mouse input first, use the terminal's native
+selection modifier, typically `Option` while dragging.
+
 ## Example workflows
 
 ### Create an overview worksheet

@@ -66,9 +66,11 @@ class AgentRuntime:
                 "content": (
                     "You are Pititino, a safe local file workbench. Use the provided typed tools "
                     "to inspect files instead of inventing contents. Inspect before modifying. "
-                    "Only claim a tool operation succeeded when its result says it did. "
-                    "Keep responses concise and grounded in returned data. "
-                    "If native tool calls are unavailable, return one JSON action object "
+                     "Only claim a tool operation succeeded when its result says it did. "
+                     "Keep responses concise and grounded in returned data. "
+                     "After each tool result, continue the task until it is complete. "
+                     "Never return an empty response: provide the next JSON action or a concise final answer. "
+                     "If native tool calls are unavailable, return one JSON action object "
                     "with `action` and `arguments` fields. Available JSON action schemas:\n"
                     + json.dumps(tools, ensure_ascii=True)
                     + context
@@ -78,6 +80,8 @@ class AgentRuntime:
         ]
         json_mode = self.settings.model.tool_calling == "json"
         native_tool_calls_seen = False
+        tool_calls_executed = False
+        empty_response_retries = 0
 
         for round_number in range(1, self.settings.agent.max_tool_rounds + 1):
             try:
@@ -111,27 +115,54 @@ class AgentRuntime:
                 )
                 tool_calls = response.tool_calls
             if not tool_calls:
-                return response.content
+                if not response.content.strip() and tool_calls_executed and empty_response_retries == 0:
+                    empty_response_retries += 1
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Continue the requested task using the tool result above. "
+                                "Return the next JSON action if more work is needed, or a concise final answer."
+                            ),
+                        }
+                    )
+                    continue
+                return response.content or "The model returned no final response after the tool operation."
             if not json_mode:
                 native_tool_calls_seen = True
 
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": response.content or None,
-                    "tool_calls": [
+            if json_mode:
+                for call in tool_calls:
+                    messages.append(
                         {
-                            "id": call.id,
-                            "type": "function",
-                            "function": {
-                                "name": call.name,
-                                "arguments": call.arguments,
-                            },
+                            "role": "assistant",
+                            "content": json.dumps(
+                                {
+                                    "action": call.name,
+                                    "arguments": json.loads(call.arguments),
+                                },
+                                ensure_ascii=True,
+                            ),
                         }
-                        for call in tool_calls
-                    ],
-                }
-            )
+                    )
+            else:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response.content or None,
+                        "tool_calls": [
+                            {
+                                "id": call.id,
+                                "type": "function",
+                                "function": {
+                                    "name": call.name,
+                                    "arguments": call.arguments,
+                                },
+                            }
+                            for call in tool_calls
+                        ],
+                    }
+                )
             for call in tool_calls:
                 name = call.name
                 await self._activity(f"calling {name}")
@@ -148,7 +179,13 @@ class AgentRuntime:
                 except (json.JSONDecodeError, PititinoError, OSError, KeyError) as exc:
                     content = json.dumps({"error": str(exc)})
                 await self._activity(f"completed {name}")
-                messages.append({"role": "tool", "tool_call_id": call.id, "content": content})
+                tool_calls_executed = True
+                if json_mode:
+                    messages.append(
+                        {"role": "user", "content": f"Tool result for {name}:\n{content}"}
+                    )
+                else:
+                    messages.append({"role": "tool", "tool_call_id": call.id, "content": content})
         raise AgentRuntimeError(
             f"Agent exceeded max_tool_rounds ({self.settings.agent.max_tool_rounds})"
         )

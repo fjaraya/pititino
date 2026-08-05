@@ -37,6 +37,8 @@ def test_branding_contains_requested_identity() -> None:
     assert "PITITINO" in SPLASH_ART
     assert "AI file workbench" in SPLASH_ART
     assert COMPACT_HEADER == "  /\\_/\\   PITITINO\n( o.o )  AI file workbench\n > ^ <"
+    assert PititinoApp.ALLOW_SELECT is True
+    assert any(binding[0] == "super+c" for binding in PititinoApp.BINDINGS)
 
 
 @pytest.mark.anyio

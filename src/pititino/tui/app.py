@@ -29,11 +29,13 @@ class PititinoApp(App[None]):
 
     TITLE = "Pititino"
     SUB_TITLE = "AI file workbench"
+    ALLOW_SELECT = True
     BINDINGS: ClassVar[list[tuple[str, str, str]]] = [
         ("a", "apply_changes", "Apply proposed changes"),
         ("c", "cancel_changes", "Cancel proposed changes"),
         ("escape", "cancel_request", "Cancel request"),
         ("s", "cycle_sort", "Cycle file sort"),
+        ("super+c", "copy_selected_text", "Copy selected text"),
     ]
 
     CSS = """
@@ -215,6 +217,11 @@ class PititinoApp(App[None]):
         tree = self.query_one("#tree", WorkspaceTree)
         tree.cycle_sort()
         self.query_one("#browser-sort", Static).update(f"Sort: {tree.sort_label}")
+
+    def action_copy_selected_text(self) -> None:
+        selection = self.screen.get_selected_text()
+        if selection:
+            self.copy_to_clipboard(selection)
 
     @work(exclusive=True)
     async def apply_pending_changes(self) -> None:
