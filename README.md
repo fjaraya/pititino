@@ -225,6 +225,7 @@ max_cells_per_read = 10000
 [agent]
 max_tool_rounds = 20
 timeout_seconds = 120
+max_history_turns = 10
 ```
 
 Set the API key separately:
@@ -276,6 +277,10 @@ modification time descending. Files and directories are sorted together.
 Chat text can be selected by dragging over it and copied with `Command-C` on
 macOS. If the terminal captures mouse input first, use the terminal's native
 selection modifier, typically `Option` while dragging.
+
+Pititino keeps the last 10 completed conversation turns during the current
+session, including when switching files. Press `Ctrl-Shift-R` to reset that
+context manually.
 
 ## Example workflows
 

@@ -36,6 +36,7 @@ class PititinoApp(App[None]):
         ("escape", "cancel_request", "Cancel request"),
         ("s", "cycle_sort", "Cycle file sort"),
         ("super+c", "copy_selected_text", "Copy selected text"),
+        ("ctrl+shift+r", "reset_conversation", "Reset conversation"),
     ]
 
     CSS = """
@@ -222,6 +223,13 @@ class PititinoApp(App[None]):
         selection = self.screen.get_selected_text()
         if selection:
             self.copy_to_clipboard(selection)
+
+    def action_reset_conversation(self) -> None:
+        if self.busy or self.applying:
+            self._write_chat("**Pititino:** Wait for the current request to finish.")
+            return
+        self.runtime.reset_conversation()
+        self._write_chat("**Pititino:** Conversation context reset.")
 
     @work(exclusive=True)
     async def apply_pending_changes(self) -> None:

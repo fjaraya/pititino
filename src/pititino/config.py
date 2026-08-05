@@ -51,6 +51,7 @@ class ExcelConfig(BaseModel):
 class AgentConfig(BaseModel):
     max_tool_rounds: int = Field(default=20, gt=0, le=100)
     timeout_seconds: float = Field(default=120, gt=0, le=3600)
+    max_history_turns: int = Field(default=10, gt=0, le=100)
 
 
 class Settings(BaseModel):

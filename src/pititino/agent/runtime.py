@@ -47,6 +47,11 @@ class AgentRuntime:
         self.client = client
         self.on_tool_activity = on_tool_activity
         self.pending_changes: list[ChangeSet] = []
+        self.conversation_history: list[dict[str, str]] = []
+
+    def reset_conversation(self) -> None:
+        """Clear completed user and assistant turns for the current session."""
+        self.conversation_history.clear()
 
     async def run(
         self,
@@ -76,6 +81,7 @@ class AgentRuntime:
                     + context
                 ),
             },
+            *self.conversation_history,
             {"role": "user", "content": user_message},
         ]
         json_mode = self.settings.model.tool_calling == "json"
@@ -106,6 +112,7 @@ class AgentRuntime:
                 and self.settings.model.tool_calling == "auto"
                 and not json_mode
                 and not native_tool_calls_seen
+                and not self.conversation_history
                 and callable(getattr(self.client, "complete", None))
             ):
                 json_mode = True
@@ -127,7 +134,11 @@ class AgentRuntime:
                         }
                     )
                     continue
-                return response.content or "The model returned no final response after the tool operation."
+                final_response = response.content or (
+                    "The model returned no final response after the tool operation."
+                )
+                self._remember_turn(user_message, final_response)
+                return final_response
             if not json_mode:
                 native_tool_calls_seen = True
 
@@ -189,6 +200,16 @@ class AgentRuntime:
         raise AgentRuntimeError(
             f"Agent exceeded max_tool_rounds ({self.settings.agent.max_tool_rounds})"
         )
+
+    def _remember_turn(self, user_message: str, assistant_message: str) -> None:
+        self.conversation_history.extend(
+            [
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": assistant_message},
+            ]
+        )
+        max_messages = self.settings.agent.max_history_turns * 2
+        del self.conversation_history[:-max_messages]
 
     async def _request_with_timeout(
         self,
