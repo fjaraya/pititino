@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from typing import Any
 
@@ -8,7 +9,7 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from pititino.config import ModelConfig
 from pititino.errors import ModelEndpointError
-from pititino.models.base import ModelResponse, ToolCall
+from pititino.models.base import ModelResponse, ToolCall, ToolCallingMode
 
 
 def create_chat_completions_client(config: ModelConfig) -> Any:
@@ -35,6 +36,54 @@ class ChatCompletionsClient:
     def __init__(self, config: ModelConfig, client: Any | None = None) -> None:
         self.config = config
         self.client = client or create_chat_completions_client(config)
+
+    async def next_response(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        mode: ToolCallingMode,
+        on_text_delta: Any | None = None,
+    ) -> ModelResponse:
+        """Return one normalized native or JSON-mode model response."""
+        if mode == "json":
+            return await self.complete_json(messages)
+        if on_text_delta is None:
+            response = await self.complete(messages, tools)
+            message = response.choices[0].message
+            return ModelResponse(
+                content=message.content or "",
+                tool_calls=[
+                    ToolCall(call.id, call.function.name, call.function.arguments)
+                    for call in (message.tool_calls or [])
+                ],
+            )
+
+        stream = await self.stream(messages, tools)
+        text_parts: list[str] = []
+        calls: dict[int, dict[str, str]] = {}
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta.content:
+                text_parts.append(delta.content)
+                result = on_text_delta(delta.content)
+                if inspect.isawaitable(result):
+                    await result
+            for tool_delta in delta.tool_calls or []:
+                index = tool_delta.index
+                call = calls.setdefault(index, {"id": "", "name": "", "arguments": ""})
+                if tool_delta.id:
+                    call["id"] = tool_delta.id
+                if tool_delta.function:
+                    if tool_delta.function.name:
+                        call["name"] += tool_delta.function.name
+                    if tool_delta.function.arguments:
+                        call["arguments"] += tool_delta.function.arguments
+        return ModelResponse(
+            content="".join(text_parts),
+            tool_calls=[ToolCall(call["id"], call["name"], call["arguments"]) for call in calls.values()],
+        )
 
     async def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Any:
         try:

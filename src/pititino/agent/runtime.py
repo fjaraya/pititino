@@ -230,10 +230,16 @@ class AgentRuntime:
         json_mode: bool,
     ) -> ModelResponse:
         try:
-            return await asyncio.wait_for(
-                self._request(messages, tools, on_text_delta, json_mode),
-                timeout=self.settings.agent.timeout_seconds,
-            )
+            if hasattr(self.client, "next_response"):
+                request = self.client.next_response(
+                    messages,
+                    tools,
+                    "json" if json_mode else "native",
+                    on_text_delta,
+                )
+            else:
+                request = self._request(messages, tools, on_text_delta, json_mode)
+            return await asyncio.wait_for(request, timeout=self.settings.agent.timeout_seconds)
         except TimeoutError as exc:
             raise AgentRuntimeError(
                 f"Agent request exceeded timeout ({self.settings.agent.timeout_seconds:g}s)"
