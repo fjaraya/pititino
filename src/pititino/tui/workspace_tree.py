@@ -22,24 +22,18 @@ SORT_LABELS = {
 
 
 def sort_entries(entries: list[Path], mode: str) -> list[Path]:
-    """Sort directory entries while keeping directories before files."""
+    """Sort files and directories together using the selected entry key."""
     if mode not in SORT_MODES:
         raise ValueError(f"Unknown sort mode: {mode}")
 
-    directories = [entry for entry in entries if entry.is_dir() and not entry.is_symlink()]
-    files = [entry for entry in entries if entry not in directories]
-    grouped = [directories, files]
     reverse = mode.endswith("desc")
-
-    for entries_group in grouped:
-        if mode.startswith("name"):
-            entries_group.sort(key=lambda entry: entry.name.casefold(), reverse=reverse)
-        else:
-            entries_group.sort(
-                key=lambda entry: (entry.stat().st_mtime_ns, entry.name.casefold()),
-                reverse=reverse,
-            )
-    return directories + files
+    if mode.startswith("name"):
+        return sorted(entries, key=lambda entry: entry.name.casefold(), reverse=reverse)
+    return sorted(
+        entries,
+        key=lambda entry: (entry.stat().st_mtime_ns, entry.name.casefold()),
+        reverse=reverse,
+    )
 
 
 class WorkspaceTree(Tree[Path]):

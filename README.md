@@ -269,9 +269,9 @@ During development:
 uv run pititino ./reports
 ```
 
-In the filesystem browser, press `s` to cycle through file sorting modes:
-name ascending, name descending, modification time ascending, and modification
-time descending.
+In the filesystem browser, press `s` to cycle through workspace entry sorting
+modes: name ascending, name descending, modification time ascending, and
+modification time descending. Files and directories are sorted together.
 
 ## Example workflows
 

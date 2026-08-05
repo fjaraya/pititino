@@ -1,4 +1,4 @@
-import time
+import os
 from pathlib import Path
 
 import pytest
@@ -14,28 +14,30 @@ def test_sort_entries_supports_name_and_modification_orders(tmp_path: Path) -> N
     alpha = tmp_path / "alpha.txt"
     zulu = tmp_path / "zulu.txt"
     alpha.write_text("alpha", encoding="utf-8")
-    time.sleep(0.001)
     zulu.write_text("zulu", encoding="utf-8")
+    os.utime(alpha, (100, 100))
+    os.utime(directory, (200, 200))
+    os.utime(zulu, (300, 300))
     entries = [zulu, directory, alpha]
 
     assert [path.name for path in sort_entries(entries, "name_asc")] == [
-        "folder",
         "alpha.txt",
+        "folder",
         "zulu.txt",
     ]
     assert [path.name for path in sort_entries(entries, "name_desc")] == [
-        "folder",
         "zulu.txt",
+        "folder",
         "alpha.txt",
     ]
     assert [path.name for path in sort_entries(entries, "modified_asc")] == [
-        "folder",
         "alpha.txt",
+        "folder",
         "zulu.txt",
     ]
     assert [path.name for path in sort_entries(entries, "modified_desc")] == [
-        "folder",
         "zulu.txt",
+        "folder",
         "alpha.txt",
     ]
 
