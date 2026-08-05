@@ -10,7 +10,7 @@ It combines a filesystem browser, an interactive chat interface, and controlled 
 
 Instead of giving the model unrestricted shell or Python access, Pititino exposes a typed set of file tools. The model decides **what** should be done; Pititino performs the operation locally through deterministic adapters and can require approval before modifying anything.
 
-> **Status:** Early development / experimental.
+> **Status:** Early development / experimental. The first usable read-only and transactional XLSX slice is implemented.
 
 ## What Pititino is for
 
@@ -87,6 +87,9 @@ The initial interface is built around three main areas:
 
 The TUI is intended to provide filesystem navigation, file selection, chat history, streaming responses, tool activity, change-plan previews, approvals, operation results, and keyboard-driven navigation.
 
+When a write plan is waiting, press `a` to review/apply it or `c` to cancel it.
+Press `Escape` to cancel an active model request or write operation.
+
 ## Architecture
 
 ```text
@@ -129,11 +132,11 @@ The initial target is:
 | Format | Extension | Initial capabilities |
 |---|---|---|
 | Excel | `.xlsx` | Inspect workbooks/sheets, read ranges, create sheets, write cells/tables |
-| CSV | `.csv` | Inspect, read, summarize, write |
-| Text | `.txt` | Read and modify |
-| Markdown | `.md` | Read and modify |
-| JSON | `.json` | Read and modify structured data |
-| YAML | `.yaml`, `.yml` | Read and modify structured data |
+| CSV | `.csv` | Bounded inspect/read and approved row appends |
+| Text | `.txt` | Bounded read and approved replace/append |
+| Markdown | `.md` | Bounded read and approved replace/append |
+| JSON | `.json` | Bounded read and approved dotted-path updates |
+| YAML | `.yaml`, `.yml` | Bounded read and approved dotted-path updates |
 
 ### Excel note
 
@@ -151,6 +154,8 @@ Legacy binary `.xls` files are not part of the initial scope and should not be t
 Pititino is intended to work with endpoints such as LiteLLM, vLLM's OpenAI-compatible server, hosted OpenAI-compatible APIs, and other compatible gateways.
 
 Compatibility can vary between servers and models, particularly around tool calling.
+If a model does not reliably select native tools, set `tool_calling = "json"` to
+use the validated JSON action protocol explicitly.
 
 ## Installation
 
@@ -216,6 +221,10 @@ allow_shell = false
 [excel]
 max_rows_per_read = 500
 max_cells_per_read = 10000
+
+[agent]
+max_tool_rounds = 20
+timeout_seconds = 120
 ```
 
 Set the API key separately:
@@ -223,6 +232,10 @@ Set the API key separately:
 ```bash
 export PITITINO_API_KEY="your-api-key"
 ```
+
+Pititino also loads a local `.env` file from the launch directory without
+overwriting variables already exported in the environment. Keep `.env` out of
+version control.
 
 For a local server that ignores API keys:
 
@@ -294,12 +307,14 @@ Pititino should present the structured modification before writing when write co
 
 The model interacts with files through a controlled tool registry.
 
-Planned tools include:
+Available and planned tools include:
 
 ```text
 filesystem.list
 filesystem.stat
 filesystem.read_text
+backup.list
+backup.restore
 filesystem.copy
 filesystem.move
 
@@ -360,7 +375,7 @@ This keeps context bounded and reduces unnecessary data transfer.
 
 OpenAI-compatible does not guarantee identical tool-calling behavior across every endpoint and model.
 
-Pititino therefore plans to support three modes.
+Pititino supports three modes.
 
 ### Native
 
@@ -396,7 +411,10 @@ Pititino validates the action before executing it.
 tool_calling = "auto"
 ```
 
-Uses the best supported mode for the configured endpoint/model.
+Tries native tool calls first. If the endpoint rejects native tools, or the
+model returns a response without selecting a tool, Pititino retries once using
+the validated JSON action protocol. After a native tool call succeeds, normal
+final prose is returned without an additional fallback request.
 
 ## Safe writes
 
@@ -436,9 +454,12 @@ Runtime state may be stored under:
 ```text
 .pititino/
 ├── backups/
-├── history/
+├── history/operations.jsonl
 └── tmp/
 ```
+
+The history file records timestamps, target paths, operation names, statuses,
+backup paths, and failure reasons. It does not record file contents or tool arguments.
 
 ## Security model
 
@@ -453,6 +474,7 @@ Important constraints include:
 - Write and delete operations can require explicit confirmation.
 - File adapters decide which operations are valid for each file type.
 - Temporary output can be validated before replacing an original file.
+- Approved changes are rejected if the target changed after the proposal was created.
 - API credentials are loaded from environment variables rather than committed configuration.
 
 AI-generated modifications can still be wrong. Review important changes.
@@ -525,6 +547,12 @@ Format:
 ```bash
 uv run ruff format .
 ```
+
+The current vertical slice includes workspace-safe filesystem tools, bounded XLSX
+inspection, native OpenAI tool calling, streamed responses, Textual chat execution,
+a dedicated change-plan panel, and approved XLSX change sets with backups and
+temporary-file replacement. JSON tool-calling fallback, bounded CSV/text/JSON/YAML
+reads, approved text/CSV/JSON/YAML changes, and confirmed backup restore are supported.
 
 ## Initial roadmap
 

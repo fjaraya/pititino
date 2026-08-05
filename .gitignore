@@ -9,3 +9,10 @@ AGENTS.md
 .opencode
 .DS_Store
 .codegraph
+.env
+.env.*
+.venv/
+__pycache__/
+*.py[cod]
+.pititino/
+.env
