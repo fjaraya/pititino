@@ -71,6 +71,7 @@ class AgentRuntime:
         on_text_delta: TextDelta | None = None,
     ) -> str:
         self.pending_changes.clear()
+        json_mode = self.settings.model.tool_calling == "json"
         if self.pydantic_backend is not None:
             try:
                 result = await self.pydantic_backend.run(
@@ -81,6 +82,8 @@ class AgentRuntime:
             except ModelEndpointError:
                 if self.settings.model.tool_calling != "auto":
                     raise
+                json_mode = True
+                await self._activity("native Pydantic AI backend unavailable; using JSON actions")
             else:
                 self.pending_changes = list(self.pydantic_backend.pending_changes)
                 return result
@@ -107,7 +110,6 @@ class AgentRuntime:
             *self.conversation_history,
             {"role": "user", "content": user_message},
         ]
-        json_mode = self.settings.model.tool_calling == "json"
         native_tool_calls_seen = False
         tool_calls_executed = False
         empty_response_retries = 0

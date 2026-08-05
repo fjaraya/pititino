@@ -6,6 +6,7 @@ from openpyxl import Workbook
 from pititino.agent.runtime import AgentRuntime
 from pititino.config import Settings
 from pititino.errors import ModelEndpointError
+from pititino.models.chat_completions import ChatCompletionsClient
 from pititino.tools import build_registry
 from pititino.workspace import Workspace
 
@@ -75,6 +76,20 @@ class EmptyAfterToolClient:
         if len(self.calls) == 2:
             return response("")
         return response("The workspace was inspected.")
+
+
+class CompatibleJsonClient:
+    def __init__(self):
+        self.requests = []
+        self.chat = SimpleNamespace(completions=self)
+
+    async def create(self, **request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            content = '{"action":"filesystem.list","arguments":{"path":"."}}'
+        else:
+            content = "Fallback completed."
+        return response(content)
 
 
 @pytest.mark.anyio
@@ -151,3 +166,24 @@ async def test_empty_json_response_is_retried_after_tool_execution(tmp_path) -> 
 
     assert result == "The workspace was inspected."
     assert len(client.calls) == 3
+
+
+@pytest.mark.anyio
+async def test_auto_pydantic_failure_goes_directly_to_json(tmp_path) -> None:
+    sdk_client = CompatibleJsonClient()
+    settings = Settings(model={"tool_calling": "auto"})
+    runtime = AgentRuntime(
+        settings,
+        build_registry(Workspace(tmp_path), settings),
+        ChatCompletionsClient(settings.model, sdk_client),
+    )
+
+    async def unavailable(*args, **kwargs):
+        raise ModelEndpointError("native tools are unsupported")
+
+    runtime.pydantic_backend.run = unavailable
+    result = await runtime.run("List the workspace")
+
+    assert result == "Fallback completed."
+    assert len(sdk_client.requests) == 2
+    assert all("tools" not in request for request in sdk_client.requests)
