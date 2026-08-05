@@ -1,5 +1,9 @@
 # Pititino
 
+<p align="center">
+  <img src="assets/pititino.png" alt="Pititino" width="420">
+</p>
+
 **Pititino** is a terminal-native AI file workbench.
 
 It combines a filesystem browser, an interactive chat interface, and controlled local file operations so you can ask an OpenAI-compatible model to inspect, understand, and modify files in your workspace.
