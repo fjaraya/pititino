@@ -196,6 +196,7 @@ Example:
 
 ```toml
 [model]
+api = "chat_completions"
 base_url = "https://api.example.com/v1"
 model = "example-model"
 api_key_env = "PITITINO_API_KEY"
@@ -237,6 +238,12 @@ export PITITINO_API_KEY="your-api-key"
 Pititino also loads a local `.env` file from the launch directory without
 overwriting variables already exported in the environment. Keep `.env` out of
 version control.
+
+The model layer uses Pydantic AI's Chat Completions provider to connect to any
+OpenAI-compatible `/v1/chat/completions` endpoint. The configured model name is
+passed through unchanged; it may refer to Qwen, Llama, Mistral, Gemma,
+DeepSeek, or another model served by the gateway. The agent runtime depends on
+the provider-neutral `ModelBackend` contract rather than a model vendor SDK.
 
 For a local server that ignores API keys:
 

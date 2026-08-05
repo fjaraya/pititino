@@ -12,6 +12,7 @@ from pititino.errors import ConfigurationError
 
 
 class ModelConfig(BaseModel):
+    api: Literal["chat_completions"] = "chat_completions"
     base_url: str = "http://localhost:8000/v1"
     model: str = "default"
     api_key_env: str = "PITITINO_API_KEY"

@@ -13,6 +13,7 @@ def test_default_settings_disable_shell() -> None:
     assert settings.agent.max_tool_rounds == 20
     assert settings.agent.timeout_seconds == 120
     assert settings.agent.max_history_turns == 10
+    assert settings.model.api == "chat_completions"
 
 
 def test_load_settings_reads_toml(tmp_path, monkeypatch) -> None:

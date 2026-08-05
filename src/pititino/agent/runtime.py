@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from pititino.config import Settings
 from pititino.errors import AgentRuntimeError, ModelEndpointError, PititinoError
-from pititino.llm.openai import OpenAIChatClient
+from pititino.models.base import ModelBackend
 from pititino.tools.registry import ToolRegistry
 from pititino.transactions.changeset import ChangeSet
 
@@ -33,13 +33,13 @@ class AssistantResult:
 
 
 class AgentRuntime:
-    """Run a bounded native OpenAI tool-calling conversation."""
+    """Run a bounded tool-calling conversation through a model backend."""
 
     def __init__(
         self,
         settings: Settings,
         registry: ToolRegistry,
-        client: OpenAIChatClient,
+        client: ModelBackend,
         on_tool_activity: ToolActivity | None = None,
     ) -> None:
         self.settings = settings

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from pititino.config import ModelConfig
-from pititino.llm.openai import OpenAIChatClient
+from pititino.models.chat_completions import ChatCompletionsClient
 
 
 class FakeCompletions:
@@ -23,10 +23,11 @@ class FakeSDKClient:
 @pytest.mark.anyio
 async def test_json_fallback_omits_native_tools_parameter() -> None:
     sdk_client = FakeSDKClient()
-    client = OpenAIChatClient(ModelConfig(), sdk_client)
+    client = ChatCompletionsClient(ModelConfig(), sdk_client)
 
     await client.complete([], [])
     await client.complete([], [{"type": "function"}])
 
     assert "tools" not in sdk_client.chat.completions.requests[0]
     assert sdk_client.chat.completions.requests[1]["tools"] == [{"type": "function"}]
+    assert sdk_client.chat.completions.requests[1]["tool_choice"] == "auto"

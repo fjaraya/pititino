@@ -7,9 +7,10 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 authors = [{ name = "Francisco Araya" }]
 dependencies = [
-  "openai>=1.0",
-  "openpyxl>=3.1",
-  "pydantic>=2.0",
+    "openai>=1.0",
+    "openpyxl>=3.1",
+    "pydantic-ai-slim[openai]>=1.0",
+    "pydantic>=2.0",
   "PyYAML>=6.0",
   "textual>=0.80",
 ]

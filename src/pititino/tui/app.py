@@ -15,7 +15,7 @@ from textual.worker import Worker
 from pititino.agent.runtime import AgentRuntime
 from pititino.config import Settings
 from pititino.errors import PititinoError
-from pititino.llm.openai import OpenAIChatClient
+from pititino.models.chat_completions import ChatCompletionsClient
 from pititino.tools import build_registry
 from pititino.transactions.changeset import ChangeSet
 from pititino.transactions.executor import apply_changeset
@@ -118,7 +118,7 @@ class PititinoApp(App[None]):
         self.runtime = AgentRuntime(
             settings,
             build_registry(self.safe_workspace, settings),
-            OpenAIChatClient(settings.model),
+            ChatCompletionsClient(settings.model),
             on_tool_activity=self._show_activity,
         )
         self.chat_lines = ["# Pititino", "Select a file and ask a question."]
