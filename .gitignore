@@ -4,6 +4,7 @@ mempalace.yaml
 entities.json
 
 .agents/
+.claude/
 AGENTS.md
 .opencode
 .DS_Store
